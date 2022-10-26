@@ -123,7 +123,11 @@ def build_dicts() -> None:
     with open("faculty-affiliations.csv") as f:
         rdr = csv.DictReader(f)
         for row in rdr:
-            facultydict[row["name"]] = row["affiliation"]
+            if facultydict[row["name"]] == "":
+                facultydict[row["name"]] = row["affiliation"]
+            elif row["affiliation"] not in facultydict[row["name"]]:
+                facultydict[row["name"]] = facultydict[row["name"]] + "|" + row["affiliation"]
+
 
     with open("dblp-aliases.csv") as f:
         rdr = csv.DictReader(f)

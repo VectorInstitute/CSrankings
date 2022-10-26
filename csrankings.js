@@ -932,12 +932,15 @@ class CSRankings {
                 visited[name] = true;
                 facultycount[name] = 0;
                 facultyAdjustedCount[name] = 0;
-                if (!(dept in deptCounts)) {
-                    deptCounts[dept] = 0;
-                    deptNames[dept] = [];
+                const allDepts = dept.split("|");
+                for (const thisDept of allDepts) {
+                    if (!(thisDept in deptCounts)) {
+                        deptCounts[thisDept] = 0;
+                        deptNames[thisDept] = [];
+                    }
+                    deptNames[thisDept].push(name);
+                    deptCounts[thisDept] += 1;
                 }
-                deptNames[dept].push(name);
-                deptCounts[dept] += 1;
             }
             facultycount[name] += count;
             facultyAdjustedCount[name] += adjustedCount;
