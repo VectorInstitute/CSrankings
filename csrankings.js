@@ -927,15 +927,14 @@ class CSRankings {
                 if (!(areaDept in this.areaDeptAdjustedCount)) {
                     this.areaDeptAdjustedCount[areaDept] = 0;
                 }
-                const count = parseInt(this.authors[r].count);
-                const adjustedCount = parseFloat(this.authors[r].adjustedcount);
+                count = parseInt(this.authors[r].count);
+                adjustedCount = parseFloat(this.authors[r].adjustedcount);
                 this.areaDeptAdjustedCount[areaDept] += adjustedCount;
             }
             facultycount[name] += count;
             facultyAdjustedCount[name] += adjustedCount;
 
             // Is this the first time we have seen this person?
-            console.log("Checking if name " + name + " is in visited? " + (name in visited));
             if (!(name in visited)) {
                 visited[name] = true;
                 facultycount[name] = 0;
