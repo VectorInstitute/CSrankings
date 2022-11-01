@@ -918,20 +918,30 @@ class CSRankings {
             if (area in CSRankings.parentMap) {
                 area = CSRankings.parentMap[area];
             }
-            const areaDept = area + dept;
-            if (!(areaDept in this.areaDeptAdjustedCount)) {
-                this.areaDeptAdjustedCount[areaDept] = 0;
+            // Need to split the dept string in case this author has multiple institutions
+            var count;
+            var adjustedCount;
+            var allDepts = dept.split("|");
+            for (const thisDept of allDepts) {
+                var areaDept = area + thisDept;
+                if (!(areaDept in this.areaDeptAdjustedCount)) {
+                    this.areaDeptAdjustedCount[areaDept] = 0;
+                }
+                count = parseInt(this.authors[r].count);
+                adjustedCount = parseFloat(this.authors[r].adjustedcount);
+                this.areaDeptAdjustedCount[areaDept] += adjustedCount;
             }
-            const count = parseInt(this.authors[r].count);
-            const adjustedCount = parseFloat(this.authors[r].adjustedcount);
-            this.areaDeptAdjustedCount[areaDept] += adjustedCount;
-            /* Is this the first time we have seen this person? */
+            facultycount[name] += count;
+            facultyAdjustedCount[name] += adjustedCount;
+
+            // Is this the first time we have seen this person?
             if (!(name in visited)) {
                 visited[name] = true;
                 facultycount[name] = 0;
                 facultyAdjustedCount[name] = 0;
-                const allDepts = dept.split("|");
-                for (const thisDept of allDepts) {
+                // Split along | in case this author belongs to multiple depts
+                var allDepts = dept.split("|");
+                for (var thisDept of allDepts) {
                     if (!(thisDept in deptCounts)) {
                         deptCounts[thisDept] = 0;
                         deptNames[thisDept] = [];
@@ -940,8 +950,6 @@ class CSRankings {
                     deptCounts[thisDept] += 1;
                 }
             }
-            facultycount[name] += count;
-            facultyAdjustedCount[name] += adjustedCount;
         }
     }
     /* Compute aggregate statistics. */
