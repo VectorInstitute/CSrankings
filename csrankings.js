@@ -901,9 +901,26 @@ class CSRankings {
             const auth = this.authors[r];
             const dept = auth.dept;
             //	    if (!(dept in regionMap)) {
-            if (!this.inRegion(dept, regions)) {
+
+            // Does this author belong to multiple departments?
+            var skipAuthor = false;
+            if (typeof(dept) != "undefined" && dept.indexOf("|") > 0) {
+                var allDepts = dept.split("|");
+                // BUG: this check doesn't work if the departments are in different countries
+                for (const thisDept of allDepts) {
+                    if (!this.inRegion(thisDept, regions)) {
+                        skipAuthor = true;
+                    }
+                }
+            }
+            // If this author's department isn't in the selected region, skip this author
+            else if (!this.inRegion(dept, regions)) {
+                skipAuthor = true;
+            }
+            if (skipAuthor == true) {
                 continue;
             }
+
             let area = auth.area;
             if (weights[area] === 0) {
                 continue;
