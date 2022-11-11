@@ -900,20 +900,20 @@ class CSRankings {
             const dept = auth.dept;
             //	    if (!(dept in regionMap)) {
 
+            var skipAuthor = true;
             // Does this author belong to multiple departments?
-            var skipAuthor = false;
             if (typeof(dept) != "undefined" && dept.indexOf("|") > 0) {
                 var allDepts = dept.split("|");
-                // BUG: this check doesn't work if the departments are in different countries
                 for (const thisDept of allDepts) {
-                    if (!this.inRegion(thisDept, regions)) {
-                        skipAuthor = true;
+                    // If any of this author's departments are in the selected region, don't skip
+                    if (this.inRegion(thisDept, regions)) {
+                        skipAuthor = false;
                     }
                 }
             }
-            // If this author's department isn't in the selected region, skip this author
-            else if (!this.inRegion(dept, regions)) {
-                skipAuthor = true;
+            // If this author's department is in the selected region, don't skip them
+            else if (this.inRegion(dept, regions)) {
+                skipAuthor = false;
             }
             if (skipAuthor == true) {
                 continue;
