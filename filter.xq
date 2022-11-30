@@ -61,7 +61,7 @@
 //inproceedings[booktitle="ICML (1)"],
 //inproceedings[booktitle="ICML (2)"],
 //inproceedings[booktitle="ICML (3)"],
-//inproceedings[booktitle="KDD"],
+//inproceedings[booktitle="ICLR"],
 //inproceedings[booktitle="CRYPTO"],
 //inproceedings[booktitle="CRYPTO (1)"],
 //inproceedings[booktitle="CRYPTO (2)"],
