@@ -195,7 +195,7 @@ areadict: Dict[Area, List[Conference]] = {
     Area("focs"): [Conference("FOCS")],
     Area("stoc"): [Conference("STOC")],
     Area("soda"): [Conference("SODA")],
-    # 'mlmining': ['NIPS', 'ICML', 'ICML (1)', 'ICML (2)', 'ICML (3)', 'ICLR'],
+    # 'mlmining': ['NIPS', 'ICML', 'ICML (1)', 'ICML (2)', 'ICML (3)', 'ICLR', 'ICLR (Poster)', 'ICLR (Workshop)', 'ICLR (Workshop Poster)'],
     Area("nips"): [Conference("NIPS"), Conference("NeurIPS")],
     Area("icml"): [
         Conference("ICML"),
@@ -203,7 +203,12 @@ areadict: Dict[Area, List[Conference]] = {
         Conference("ICML (2)"),
         Conference("ICML (3)"),
     ],
-    Area("iclr"): [Conference("ICLR")],
+    Area("iclr"): [
+        Conference("ICLR"),
+        Conference("ICLR (Poster)"),
+        Conference("ICLR (Workshop)"),
+        Conference("ICLR (Workshop Poster)")
+    ],
     # 'ai': ['AAAI', 'AAAI/IAAI', 'IJCAI'],
     Area("aaai"): [Conference("AAAI"), Conference("AAAI/IAAI")],
     Area("ijcai"): [Conference("IJCAI")],
