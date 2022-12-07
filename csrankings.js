@@ -970,6 +970,12 @@ class CSRankings {
                 }
             }
         }
+        // Make sure these departments are in the selected region
+        for (const dept in deptNames) {
+            if (!this.inRegion(dept, regions)) {
+                delete deptNames[dept];
+            }
+        }
     }
     /* Compute aggregate statistics. */
     computeStats(deptNames, numAreas, weights) {
