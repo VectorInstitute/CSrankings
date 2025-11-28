@@ -9,7 +9,6 @@ import gzip
 import json
 import operator
 import os
-import pkg_resources
 import random
 import re
 import requests
@@ -87,14 +86,12 @@ generated = {}
 with open("generated-author-info.csv", mode="r") as infile:
     reader = csv.DictReader(infile)
     for row in reader:
-        generated[row["name"]] = generated.get(row["name"], 0) + float(
-            row["count"]
-        )
+        generated[row["name"]] = generated.get(row["name"], 0) + float(row["count"])
 
 
 # Read in country-info file.
 countryinfo = {}
-with open("country-info.csv", mode="r") as infile:
+with open("institutions.csv", mode="r") as infile:
     reader = csv.DictReader(infile)
     for row in reader:
         if row["institution"] != "":
@@ -104,7 +101,7 @@ with open("country-info.csv", mode="r") as infile:
             }
 
 # Sort it and write it back.
-with open("country-info.csv", mode="w") as outfile:
+with open("institutions.csv", mode="w") as outfile:
     sfieldnames = ["institution", "region", "countryabbrv"]
     swriter = csv.DictWriter(outfile, fieldnames=sfieldnames)
     swriter.writeheader()
@@ -115,6 +112,41 @@ with open("country-info.csv", mode="w") as outfile:
             "countryabbrv": countryinfo[n]["countryabbrv"],
         }
         swriter.writerow(h)
+
+
+# Read in all CSrankings files and remove duplicates.
+for letter in map(chr, range(ord('a'),ord('z')+1)):
+    csrankings = {}
+    with open(f"csrankings-{letter}.csv", mode="r") as infile:
+        reader = csv.DictReader(infile)
+        for row in reader:
+            csrankings[row["name"]] = {
+                "affiliation": row["affiliation"],
+                "homepage": row["homepage"],
+                "scholarid": row["scholarid"],
+            }
+    with open(f"csrankings-{letter}.csv", mode="w") as outfile:
+        sfieldnames = ["name", "affiliation", "homepage", "scholarid"]
+        swriter = csv.DictWriter(outfile, fieldnames=sfieldnames)
+        swriter.writeheader()
+        for n in csrankings:
+            h = {
+                "name": n,
+                "affiliation": csrankings[n]["affiliation"],
+                "homepage": csrankings[n]["homepage"].rstrip("/"),
+                "scholarid": csrankings[n]["scholarid"],
+            }
+            swriter.writerow(h)
+    
+csrankings = {}
+with open("csrankings.csv", mode="r") as infile:
+    reader = csv.DictReader(infile)
+    for row in reader:
+        csrankings[row["name"]] = {
+            "affiliation": row["affiliation"],
+            "homepage": row["homepage"],
+            "scholarid": row["scholarid"],
+        }
 
 
 # Read in CSrankings file.
@@ -180,9 +212,7 @@ if False:
         sfieldnames = ["alias", "name"]
         swriter = csv.DictWriter(outfile, fieldnames=sfieldnames)
         swriter.writeheader()
-        for n in collections.OrderedDict(
-            sorted(aliases.items(), key=lambda t: t[0])
-        ):
+        for n in collections.OrderedDict(sorted(aliases.items(), key=lambda t: t[0])):
             for a in aliases[n]:
                 h = {"alias": a, "name": n}
                 swriter.writerow(h)
@@ -212,10 +242,7 @@ for name in csrankings:
         page = "NOSCHOLARPAGE"
         if name in aliases:
             for a in aliases[name]:
-                if (
-                    a in csrankings
-                    and csrankings[a]["scholarid"] != "NOSCHOLARPAGE"
-                ):
+                if a in csrankings and csrankings[a]["scholarid"] != "NOSCHOLARPAGE":
                     page = csrankings[a]["scholarid"]
         if name in aliasToName:
             if csrankings[aliasToName[name]] != "NOSCHOLARPAGE":
@@ -294,9 +321,7 @@ for n in sorted(
             + " clashes and scores:"
             + str(mapscores)
         )
-        affiliations = list(
-            map(lambda nv: csrankings[nv[0]]["affiliation"], mapscores)
-        )
+        affiliations = list(map(lambda nv: csrankings[nv[0]]["affiliation"], mapscores))
         print(affiliations)
         if affiliations[0] == affiliations[-1]:
             # All affiliations the same.
@@ -319,11 +344,7 @@ for name in ks:
     try:
         r = requests.head(page, allow_redirects=True, timeout=3)
         print(r.status_code)
-        if (
-            (r.status_code == 404)
-            or (r.status_code == 410)
-            or (r.status_code == 500)
-        ):
+        if (r.status_code == 404) or (r.status_code == 410) or (r.status_code == 500):
             # prints the int of the status code. Find more at httpstatusrappers.com :)
             print("SEARCHING NOW FOR FIX FOR " + name)
             actualURL = find_fix(name, csrankings[name]["affiliation"])
@@ -347,9 +368,7 @@ for name in ks:
 
 # Now rewrite csrankings.csv.
 
-csrankings = collections.OrderedDict(
-    sorted(csrankings.items(), key=lambda t: t[0])
-)
+csrankings = collections.OrderedDict(sorted(csrankings.items(), key=lambda t: t[0]))
 with open("csrankings.csv", mode="w") as outfile:
     sfieldnames = ["name", "affiliation", "homepage", "scholarid"]
     swriter = csv.DictWriter(outfile, fieldnames=sfieldnames)

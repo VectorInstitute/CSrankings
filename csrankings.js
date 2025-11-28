@@ -31,6 +31,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 ;
 ;
 ;
+;
 class CSRankings {
     // We have scrolled: increase the number we rank.
     static updateMinimum(obj) {
@@ -62,7 +63,8 @@ class CSRankings {
         this.note = {};
         this.authorFile = "./csrankings.csv";
         this.authorinfoFile = "./generated-author-info.csv";
-        this.countryinfoFile = "./country-info.csv";
+        this.countryinfoFile = "./institutions.csv";
+        this.countrynamesFile = "./countries.csv";
         // private readonly aliasFile = "./dblp-aliases.csv";
         this.turingFile = "./turing.csv";
         this.turingImage = "./png/acm-turing-award.png";
@@ -106,8 +108,8 @@ class CSRankings {
             { area: "mod", title: "DB" },
             { area: "sigmod", title: "DB" },
             { area: "vldb", title: "DB" },
-            { area: "icde", title: "DB" },
-            { area: "pods", title: "DB" },
+            { area: "icde", title: "DB" }, // next tier
+            { area: "pods", title: "DB" }, // next tier
             { area: "hpc", title: "HPC" },
             { area: "sc", title: "HPC" },
             { area: "hpdc", title: "HPC" },
@@ -122,19 +124,19 @@ class CSRankings {
             { area: "ops", title: "OS" },
             { area: "sosp", title: "OS" },
             { area: "osdi", title: "OS" },
-            { area: "fast", title: "OS" },
-            { area: "usenixatc", title: "OS" },
+            { area: "fast", title: "OS" }, // next tier
+            { area: "usenixatc", title: "OS" }, // next tier
             { area: "eurosys", title: "OS" },
             { area: "pldi", title: "PL" },
             { area: "popl", title: "PL" },
-            { area: "icfp", title: "PL" },
-            { area: "oopsla", title: "PL" },
+            { area: "icfp", title: "PL" }, // next tier
+            { area: "oopsla", title: "PL" }, // next tier
             { area: "plan", title: "PL" },
             { area: "soft", title: "SE" },
             { area: "fse", title: "SE" },
             { area: "icse", title: "SE" },
-            { area: "ase", title: "SE" },
-            { area: "issta", title: "SE" },
+            { area: "ase", title: "SE" }, // next tier
+            { area: "issta", title: "SE" }, // next tier
             { area: "act", title: "Theory" },
             { area: "focs", title: "Theory" },
             { area: "soda", title: "Theory" },
@@ -172,13 +174,14 @@ class CSRankings {
             { area: "vr", title: "Visualization" },
             { area: "ecom", title: "ECom" },
             { area: "ec", title: "ECom" },
-            { area: "wine", title: "ECom" }
-            //,{ area : "cse", title : "CSEd" }
+            { area: "wine", title: "ECom" },
+            { area: "csed", title: "CSEd" },
+            { area: "sigcse", title: "CSEd" }
         ];
         this.aiAreas = ["ai", "vision", "mlmining", "nlp", "inforet"];
         this.systemsAreas = ["arch", "comm", "sec", "mod", "da", "bed", "hpc", "mobile", "metrics", "ops", "plan", "soft"];
         this.theoryAreas = ["act", "crypt", "log"];
-        this.interdisciplinaryAreas = ["bio", "graph", "ecom", "chi", "robotics", "visualization"];
+        this.interdisciplinaryAreas = ["bio", "graph", "csed", "ecom", "chi", "robotics", "visualization"];
         this.areaNames = [];
         this.fields = [];
         this.aiFields = [];
@@ -199,8 +202,10 @@ class CSRankings {
         this.turing = {};
         /* Map ACM Fellow award winners to year */
         this.acmfellow = {};
-        /* Map institution to (non-US) region. */
+        /* Map institution to region. */
         this.countryInfo = {};
+        /* Map country codes (abbreviations) to names. */
+        this.countryNames = {};
         /* Map institution to (non-US) abbreviation. */
         this.countryAbbrv = {};
         /* Map name to home page. */
@@ -299,13 +304,14 @@ class CSRankings {
             this.displayProgress(4);
             this.countAuthorAreas();
             yield this.loadCountryInfo(this.countryInfo, this.countryAbbrv);
+            yield this.loadCountryNames(this.countryNames);
             this.addListeners();
             CSRankings.geoCheck();
             this.rank();
             // We've finished loading; remove the overlay.
             document.getElementById("overlay-loading").style.display = "none";
             // Randomly display a survey.
-            const surveyFrequency = 10; // One out of this many users gets the survey (on average).
+            const surveyFrequency = 1000000; // One out of this many users gets the survey (on average).
             // Check to see if survey has already been displayed.
             let displaySurvey = false;
             // Keep the cookie for backwards compatibility (for now).
@@ -325,7 +331,7 @@ class CSRankings {
             }
             // Randomly display a sponsorship request.
             // In the future, tie to amount of use of the site, a la Wikipedia.
-            const sponsorshipFrequency = 20; // One out of this many users gets the sponsor page (on average).
+            const sponsorshipFrequency = 5; // One out of this many users gets the sponsor page (on average).
             // Check to see if the sponsorship page has already been displayed.
             if (!localStorage.getItem('sponsorshipDisplayed')) {
                 // Not shown yet.
@@ -462,25 +468,37 @@ class CSRankings {
         // Return it.
         return this.areaStringMap[name];
     }
+    removeDisambiguationSuffix(str) {
+        // Matches a space followed by a four-digit number at the end of the string
+        const regex = /\s\d{4}$/;
+        return str.replace(regex, '');
+    }
     /* from http://hubrik.com/2015/11/16/sort-by-last-name-with-javascript/ */
     compareNames(a, b) {
-        //split the names as strings into arrays
-        const aName = a.split(" ");
-        const bName = b.split(" ");
+        // Split the names as strings into arrays,
+        // removing any disambiguation suffixes first.
+        const aName = this.removeDisambiguationSuffix(a).split(" ");
+        const bName = this.removeDisambiguationSuffix(b).split(" ");
         // get the last names by selecting
         // the last element in the name arrays
         // using array.length - 1 since full names
         // may also have a middle name or initial
         const aLastName = aName[aName.length - 1];
         const bLastName = bName[bName.length - 1];
+        let returnValue;
         // compare the names and return either
         // a negative number, positive number
         // or zero.
-        if (aLastName < bLastName)
-            return -1;
-        if (aLastName > bLastName)
-            return 1;
-        return 0;
+        if (aLastName < bLastName) {
+            returnValue = -1;
+        }
+        else if (aLastName > bLastName) {
+            returnValue = 1;
+        }
+        else {
+            returnValue = 0;
+        }
+        return returnValue;
     }
     /* Create a bar or pie chart using Vega. Modified by Minsuk Kahng (https://minsuk.com) */
     makeChart(name, isPieChart) {
@@ -696,6 +714,23 @@ class CSRankings {
             }
         });
     }
+    loadCountryNames(countryNames) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const data = yield new Promise((resolve) => {
+                Papa.parse(this.countrynamesFile, {
+                    header: true,
+                    download: true,
+                    complete: (results) => {
+                        resolve(results.data);
+                    }
+                });
+            });
+            const ci = data;
+            for (const info of ci) {
+                countryNames[info.alpha_2] = info.name;
+            }
+        });
+    }
     loadAuthorInfo() {
         return __awaiter(this, void 0, void 0, function* () {
             const data = yield new Promise((resolve) => {
@@ -740,52 +775,32 @@ class CSRankings {
     }
     inRegion(dept, regions) {
         switch (regions) {
-            case "us":
-                if (dept in this.countryInfo) {
+            case "northamerica":
+                if (this.countryInfo[dept] != "northamerica") {
                     return false;
                 }
                 break;
             case "europe":
-                if (!(dept in this.countryInfo)) { // USA
-                    return false;
-                }
                 if (this.countryInfo[dept] != "europe") {
                     return false;
                 }
                 break;
-            case "northamerica":
-                if ((dept in this.countryInfo) && (this.countryInfo[dept] != "canada")) {
-                    return false;
-                }
-                break;
             case "australasia":
-                if (!(dept in this.countryInfo)) { // USA
-                    return false;
-                }
                 if (this.countryInfo[dept] != "australasia") {
                     return false;
                 }
                 break;
             case "southamerica":
-                if (!(dept in this.countryInfo)) { // USA
-                    return false;
-                }
                 if (this.countryInfo[dept] != "southamerica") {
                     return false;
                 }
                 break;
             case "asia":
-                if (!(dept in this.countryInfo)) { // USA
-                    return false;
-                }
                 if (this.countryInfo[dept] != "asia") {
                     return false;
                 }
                 break;
             case "africa":
-                if (!(dept in this.countryInfo)) { // USA
-                    return false;
-                }
                 if (this.countryInfo[dept] != "africa") {
                     return false;
                 }
@@ -1037,13 +1052,15 @@ class CSRankings {
             let keys = Object.keys(fc);
             keys.sort((a, b) => {
                 if (fc[b] === fc[a]) {
-                    return this.compareNames(a, b);
-                    /*		    let fb = Math.round(10.0 * facultyAdjustedCount[b]) / 10.0;
-                            const fa = Math.round(10.0 * facultyAdjustedCount[a]) / 10.0;
-                            if (fb === fa) {
-                            return this.compareNames(a, b);
-                            }
-                            return fb - fa; */
+                    // return this.compareNames(a, b);
+                    const fb = Math.round(10.0 * facultyAdjustedCount[b]) / 10.0;
+                    const fa = Math.round(10.0 * facultyAdjustedCount[a]) / 10.0;
+                    if (fb === fa) {
+                        return this.compareNames(a, b);
+                    }
+                    else {
+                        return fb - fa;
+                    }
                 }
                 else {
                     return fc[b] - fc[a];
@@ -1103,6 +1120,7 @@ class CSRankings {
         return univtext;
     }
     buildOutputString(numAreas, countryAbbrv, deptCounts, univtext, minToRank) {
+        var _a;
         let s = this.makePrologue();
         /* Show the top N (with more if tied at the end) */
         s = s + '<thead><tr><th align="left"><font color="#777">#</font></th><th align="left"><font color="#777">Institution</font>'
@@ -1158,8 +1176,9 @@ class CSRankings {
                 if (dept in countryAbbrv) {
                     abbrv = countryAbbrv[dept];
                 }
+                const country = (_a = this.countryNames[abbrv.toUpperCase()]) !== null && _a !== void 0 ? _a : abbrv.toUpperCase();
                 s += "&nbsp;" + `<span onclick="csr.toggleFaculty('${esc}');">${dept}</span>`
-                    + `&nbsp;<img src="/flags/${abbrv}.png">&nbsp;`
+                    + `&nbsp;<img  title="${country}" src="/flags/${abbrv}.png">&nbsp;`
                     + `<span class="hovertip" onclick='csr.toggleChart("${esc}"); ga("send", "event", "chart", "toggle-department", "toggle ${esc} ${$("#charttype").find(":selected").val()} chart");' id='${esc + "-chartwidget"}'>`
                     + this.ChartIcon + "</span>";
                 s += "</td>";
@@ -1428,7 +1447,8 @@ class CSRankings {
         return start;
     }
     static geoCheck() {
-        navigator.geolocation.getCurrentPosition((position) => {
+        var _a;
+        (_a = navigator.geolocation) === null || _a === void 0 ? void 0 : _a.getCurrentPosition((position) => {
             const continent = whichContinent(position.coords.latitude, position.coords.longitude);
             let regions = document.getElementById("regions");
             switch (continent) {
@@ -1725,7 +1745,7 @@ CSRankings.minToRank = 30; // initial number to rank --> should be enough to ena
 CSRankings.areas = [];
 CSRankings.topLevelAreas = {};
 CSRankings.topTierAreas = {};
-CSRankings.regions = ["europe", "northamerica", "southamerica", "australasia", "asia", "africa", "world", "ae", "ar", "at", "au", "bd", "be", "br", "ca", "ch", "cl", "cn", "co", "cy", "cz", "de", "dk", "ee", "eg", "es", "fi", "fr", "gr", "hk", "hu", "ie", "il", "in", "ir", "it", "jo", "jp", "kr", "lb", "lu", "mt", "my", "nl", "no", "nz", "ph", "pk", "pl", "pt", "qa", "ro", "ru", "sa", "se", "sg", "th", "tr", "tw", "uk", "za"];
+CSRankings.regions = ["europe", "northamerica", "southamerica", "australasia", "asia", "africa", "world", "ae", "ar", "at", "au", "bd", "be", "bg", "br", "ca", "ch", "cl", "cn", "co", "cy", "cz", "de", "dk", "ee", "eg", "es", "fi", "fr", "gr", "hk", "hu", "ie", "il", "in", "ir", "it", "jo", "jp", "kr", "lb", "lk", "lu", "mt", "my", "nl", "no", "nz", "ph", "pk", "pl", "pt", "qa", "ro", "ru", "sa", "se", "sg", "th", "tr", "tw", "uk", "us", "vn", "za"];
 CSRankings.nameMatcher = new RegExp('(.*)\\s+\\[(.*)\\]'); // Matches names followed by [X] notes.
 CSRankings.parentIndex = {}; // For color lookups
 CSRankings.parentMap = {
@@ -1746,15 +1766,15 @@ CSRankings.parentMap = {
     'asplos': 'arch',
     'isca': 'arch',
     'micro': 'arch',
-    'hpca': 'arch',
+    'hpca': 'arch', // next tier
     'ccs': 'sec',
     'oakland': 'sec',
     'usenixsec': 'sec',
-    'ndss': 'sec',
-    'pets': 'sec',
+    'ndss': 'sec', // next tier (for now)
+    'pets': 'sec', // next tier
     'vldb': 'mod',
     'sigmod': 'mod',
-    'icde': 'mod',
+    'icde': 'mod', // next tier
     'pods': 'mod',
     'dac': 'da',
     'iccad': 'da',
@@ -1771,22 +1791,22 @@ CSRankings.parentMap = {
     'sigmetrics': 'metrics',
     'osdi': 'ops',
     'sosp': 'ops',
-    'eurosys': 'ops',
-    'fast': 'ops',
-    'usenixatc': 'ops',
+    'eurosys': 'ops', // next tier (see below)
+    'fast': 'ops', // next tier
+    'usenixatc': 'ops', // next tier
     'popl': 'plan',
     'pldi': 'plan',
-    'oopsla': 'plan',
-    'icfp': 'plan',
+    'oopsla': 'plan', // next tier 
+    'icfp': 'plan', // next tier
     'fse': 'soft',
     'icse': 'soft',
-    'ase': 'soft',
-    'issta': 'soft',
+    'ase': 'soft', // next tier
+    'issta': 'soft', // next tier
     'nsdi': 'comm',
     'sigcomm': 'comm',
     'siggraph': 'graph',
     'siggraph-asia': 'graph',
-    'eurographics': 'graph',
+    'eurographics': 'graph', // next tier
     'focs': 'act',
     'soda': 'act',
     'stoc': 'act',
@@ -1805,7 +1825,8 @@ CSRankings.parentMap = {
     'iros': 'robotics',
     'rss': 'robotics',
     'vis': 'visualization',
-    'vr': 'visualization'
+    'vr': 'visualization',
+    'sigcse': 'csed'
 };
 CSRankings.nextTier = {
     'ase': true,
@@ -1813,7 +1834,7 @@ CSRankings.nextTier = {
     'icde': true,
     'pods': true,
     'hpca': true,
-    'ndss': true,
+    'ndss': true, // for now
     'pets': true,
     'eurosys': true,
     'eurographics': true,

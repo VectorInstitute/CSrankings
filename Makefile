@@ -7,12 +7,16 @@
 
 TARGETS = csrankings.js csrankings.min.js generated-author-info.csv
 
-.PHONY: home-pages scholar-links fix-affiliations update-dblp clean-dblp download-dblp shrink-dblp
+.PHONY: home-pages scholar-links fix-affiliations update-dblp clean-dblp download-dblp shrink-dblp clean-csrankings
 
-PYTHON = python3 # 3.7
-PYPY   = python3 # pypy
+PYTHON = python3.12 # 3.7
+PYPY   = python3.12 # pypy
+
+# DBLP   = dblp.org
+DBLP   = dblp.uni-trier.de
 
 all: generated-author-info.csv csrankings.js csrankings.min.js csrankings.csv  # fix-affiliations home-pages scholar-links
+	$(MAKE) clean-csrankings
 
 clean:
 	rm $(TARGETS)
@@ -27,18 +31,19 @@ csrankings.min.js: csrankings.js csrankings.ts
 update-dblp:
 	$(MAKE) download-dblp
 	$(MAKE) shrink-dblp
+	$(PYTHON) util/generate-aliases.py > dblp-aliases.csv
 	@echo "Done."
 
 clean-dblp:
 	@echo "Fixing character encodings."
 	sh ./util/fix-dblp.sh
-	mv dblp-fixed.xml dblp.xml
-	$(MAKE) shrink-dblp
+	gzip dblp-fixed.xml
+	$(PYTHON) util/find-missing-names-dblp.py
 
 download-dblp:
 	@echo "Downloading from DBLP."
 	rm -f dblp.xml.gz
-	curl -o dblp-original.xml.gz https://dblp.org/xml/dblp.xml.gz
+	curl -o dblp-original.xml.gz https://$(DBLP)/xml/dblp.xml.gz
 
 shrink-dblp:
 	@echo "Shrinking the DBLP file."
@@ -55,6 +60,7 @@ faculty-affiliations.csv homepages.csv scholar.csv csrankings.csv: csrankings-*.
 clean-csrankings:
 	@echo "Cleaning."
 	@$(PYTHON) util/clean-csrankings.py
+	@$(PYTHON) util/sort-csv-files.py
 	@echo "Done."
 
 home-pages: faculty-affiliations.csv homepages.csv

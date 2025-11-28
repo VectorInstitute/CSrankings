@@ -20,6 +20,7 @@ from csrankings import (
     CGF_EUROGRAPHICS_Volume,
     TVCG_Vis_Volume,
     TVCG_VR_Volume,
+    map_pacmmod_to_conference,
 )
 from collections import defaultdict, OrderedDict
 
@@ -137,9 +138,7 @@ def build_dicts() -> None:
 
     # Count and report the total number of faculty in the database.
     totalFaculty = sum(name not in aliasdict for name in facultydict)
-    print(
-        f"Total faculty members currently in the database: {str(totalFaculty)}"
-    )
+    print(f"Total faculty members currently in the database: {str(totalFaculty)}")
 
 
 def handle_article(_: Any, article: ArticleType) -> bool:  # type: ignore
@@ -156,13 +155,16 @@ def handle_article(_: Any, article: ArticleType) -> bool:  # type: ignore
         # Fix if there is just one author.
         authorList: List[str] = []
         if type(article["author"]) == list:
-            authorList = article["author"]
+            for authorName in article["author"]:
+                if type(authorName) is OrderedDict or type(authorName) is dict:
+                    aName = authorName["#text"]  # type: ignore
+                else:
+                    aName = authorName
+                aName = aName.strip()
+                authorList.append(aName)
         elif type(article["author"]) == str:
             authorList = [str(article["author"])]
-        elif (
-            type(article["author"]) is OrderedDict
-            or type(article["author"]) is dict
-        ):
+        elif type(article["author"]) is OrderedDict or type(article["author"]) is dict:
             authorList = [article["author"]["#text"]]  # type: ignore
         else:
             print("***Unknown record type, skipping.***")
@@ -171,19 +173,14 @@ def handle_article(_: Any, article: ArticleType) -> bool:  # type: ignore
         foundOneInDict = False or args.all
         if not args.all:
             for authorName in authorList:
-                if type(authorName) is OrderedDict or type(authorName) is dict:
-                    aName = authorName["#text"]  # type: ignore
-                else:
-                    aName = authorName
-                aName = aName.strip()
-                if aName in facultydict or args.all:
+                if authorName in facultydict or args.all:
                     foundOneInDict = True
                     break
                 with contextlib.suppress(KeyError):
-                    if aliasdict[aName] in facultydict:
+                    if aliasdict[authorName] in facultydict:
                         foundOneInDict = True
                         break
-                    if reversealiasdict[aName] in facultydict:
+                    if reversealiasdict[authorName] in facultydict:
                         foundOneInDict = True
                         break
             if not foundOneInDict:
@@ -198,23 +195,27 @@ def handle_article(_: Any, article: ArticleType) -> bool:  # type: ignore
         if args.conference not in confname:
             return True
 
-        if confname not in confdict:
-            return True
-
         volume = article.get("volume", "0")
         number = article.get("number", "0")
         url = article.get("url", "")
         year = int(article.get("year", "-1"))
         pages = ""
 
+        if confname not in confdict:
+            return True
+
         areaname = confdict[confname]
-        # Special handling for PACMPL
-        if areaname == Area("pacmpl"):
+
+        # Special handling for PACMPL and PACMSE
+        if areaname == Area("pacmpl") or areaname == Area("pacmse"):
             confname = Conference(article["number"])
             if confname in confdict:
                 areaname = confdict[confname]
             else:
                 return True
+        elif areaname == Area("pacmmod"):
+            (confname, year) = map_pacmmod_to_conference(confname, year, number)
+            areaname = confdict[confname]
         elif confname == Conference("ACM Trans. Graph."):
             if year in TOG_SIGGRAPH_Volume:
                 (vol, num) = TOG_SIGGRAPH_Volume[year]
@@ -245,10 +246,7 @@ def handle_article(_: Any, article: ArticleType) -> bool:  # type: ignore
 
         if "title" in article:
             title = Title("")
-            if (
-                type(article["title"]) is OrderedDict
-                or type(article["title"]) is dict
-            ):
+            if type(article["title"]) is OrderedDict or type(article["title"]) is dict:
                 title = Title(article["title"]["#text"])  # type: ignore
             else:
                 title = Title(article["title"])
@@ -314,9 +312,7 @@ def handle_article(_: Any, article: ArticleType) -> bool:  # type: ignore
                 authlogs[realName] = tmplist
                 interestingauthors[realName] += 1
                 authorscores[(realName, areaname, year)] += 1.0
-                authorscoresAdjusted[(realName, areaname, year)] += (
-                    1.0 / authorsOnPaper
-                )
+                authorscoresAdjusted[(realName, areaname, year)] += 1.0 / authorsOnPaper
     return True
 
 

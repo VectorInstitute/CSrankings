@@ -44,6 +44,11 @@ interface CountryInfo {
     readonly countryabbrv: string;
 };
 
+interface CountryName {
+    readonly name: string;
+    readonly alpha_2: string;
+};
+
 interface Alias {
     readonly alias: string;
     readonly name: string;
@@ -87,7 +92,7 @@ class CSRankings {
     public static readonly areas: Array<string> = [];
     public static readonly topLevelAreas: { [key: string]: string } = {};
     public static readonly topTierAreas: { [key: string]: string } = {};
-    public static readonly regions: Array<string> = ["europe", "northamerica", "southamerica", "australasia", "asia", "africa", "world", "ae","ar","at","au","bd","be","br","ca","ch","cl","cn","co","cy","cz","de","dk","ee","eg","es","fi","fr","gr","hk","hu","ie","il","in","ir","it","jo","jp","kr","lb","lu","mt","my","nl","no","nz","ph","pk","pl","pt","qa","ro","ru","sa","se","sg","th","tr","tw","uk","za"];
+    public static readonly regions: Array<string> = ["europe", "northamerica", "southamerica", "australasia", "asia", "africa", "world", "ae","ar","at","au","bd","be","bg","br","ca","ch","cl","cn","co","cy","cz","de","dk","ee","eg","es","fi","fr","gr","hk","hu","ie","il","in","ir","it","jo","jp","kr","lb","lk","lu","mt","my","nl","no","nz","ph","pk","pl","pt","qa","ro","ru","sa","se","sg","th","tr","tw","uk","us","vn","za"];
     private static readonly nameMatcher = new RegExp('(.*)\\s+\\[(.*)\\]'); // Matches names followed by [X] notes.
 
     private note: { [name: string]: string } = {};
@@ -198,13 +203,14 @@ class CSRankings {
             this.displayProgress(4);
             this.countAuthorAreas();
             await this.loadCountryInfo(this.countryInfo, this.countryAbbrv);
+            await this.loadCountryNames(this.countryNames);
             this.addListeners();
             CSRankings.geoCheck();
             this.rank();
 	    // We've finished loading; remove the overlay.
 	    document!.getElementById("overlay-loading")!.style.display = "none";
 	    // Randomly display a survey.
-	    const surveyFrequency = 10; // One out of this many users gets the survey (on average).
+	    const surveyFrequency = 1000000; // One out of this many users gets the survey (on average).
 	    // Check to see if survey has already been displayed.
 	    let displaySurvey = false;
 	    // Keep the cookie for backwards compatibility (for now).
@@ -224,7 +230,7 @@ class CSRankings {
             }
 	    // Randomly display a sponsorship request.
 	    // In the future, tie to amount of use of the site, a la Wikipedia.
-	    const sponsorshipFrequency = 20; // One out of this many users gets the sponsor page (on average).
+	    const sponsorshipFrequency = 5; // One out of this many users gets the sponsor page (on average).
 	    // Check to see if the sponsorship page has already been displayed.
             if (!localStorage.getItem('sponsorshipDisplayed')) {
 		// Not shown yet.
@@ -241,7 +247,8 @@ class CSRankings {
 
     private readonly authorFile = "./csrankings.csv";
     private readonly authorinfoFile = "./generated-author-info.csv";
-    private readonly countryinfoFile = "./country-info.csv";
+    private readonly countryinfoFile = "./institutions.csv";
+    private readonly countrynamesFile = "./countries.csv";
     // private readonly aliasFile = "./dblp-aliases.csv";
     private readonly turingFile = "./turing.csv";
     private readonly turingImage = "./png/acm-turing-award.png";
@@ -331,7 +338,8 @@ class CSRankings {
             'iros': 'robotics',
             'rss': 'robotics',
             'vis': 'visualization',
-            'vr': 'visualization'
+            'vr': 'visualization',
+	    'sigcse': 'csed'
         };
 
     public static readonly nextTier: { [key: string]: boolean } =
@@ -468,14 +476,15 @@ class CSRankings {
         { area: "vr", title: "Visualization" },
         { area: "ecom", title: "ECom" },
         { area: "ec", title: "ECom" },
-        { area: "wine", title: "ECom" }
-            //,{ area : "cse", title : "CSEd" }
+        { area: "wine", title: "ECom" },
+        { area : "csed", title : "CSEd" },
+        { area : "sigcse", title: "CSEd" }
         ];
 
     private readonly aiAreas = ["ai", "vision", "mlmining", "nlp", "inforet"];
     private readonly systemsAreas = ["arch", "comm", "sec", "mod", "da", "bed", "hpc", "mobile", "metrics", "ops", "plan", "soft"];
     private readonly theoryAreas = ["act", "crypt", "log"];
-    private readonly interdisciplinaryAreas = ["bio", "graph", "ecom", "chi", "robotics", "visualization"];
+    private readonly interdisciplinaryAreas = ["bio", "graph", "csed", "ecom", "chi", "robotics", "visualization"];
 
     private readonly areaNames: Array<string> = [];
     private readonly fields: Array<string> = [];
@@ -505,8 +514,11 @@ class CSRankings {
     /* Map ACM Fellow award winners to year */
     private readonly acmfellow: { [key: string]: number } = {};
 
-    /* Map institution to (non-US) region. */
+    /* Map institution to region. */
     private readonly countryInfo: { [key: string]: string } = {};
+
+    /* Map country codes (abbreviations) to names. */
+    private readonly countryNames: { [key: string]: string } = {};
 
     /* Map institution to (non-US) abbreviation. */
     private readonly countryAbbrv: { [key: string]: string } = {};
@@ -675,13 +687,20 @@ class CSRankings {
         return this.areaStringMap[name];
     }
 
+    private removeDisambiguationSuffix(str: string) {
+	// Matches a space followed by a four-digit number at the end of the string
+	const regex = /\s\d{4}$/;
+	return str.replace(regex, '');
+    }
 
     /* from http://hubrik.com/2015/11/16/sort-by-last-name-with-javascript/ */
     private compareNames(a: string, b: string): number {
 
-        //split the names as strings into arrays
-        const aName = a.split(" ");
-        const bName = b.split(" ");
+        // Split the names as strings into arrays,
+	// removing any disambiguation suffixes first.
+	
+        const aName = this.removeDisambiguationSuffix(a).split(" ");
+        const bName = this.removeDisambiguationSuffix(b).split(" ");
 
         // get the last names by selecting
         // the last element in the name arrays
@@ -690,12 +709,20 @@ class CSRankings {
         const aLastName = aName[aName.length - 1];
         const bLastName = bName[bName.length - 1];
 
+	let returnValue : number;
+	
         // compare the names and return either
         // a negative number, positive number
         // or zero.
-        if (aLastName < bLastName) return -1;
-        if (aLastName > bLastName) return 1;
-        return 0;
+        if (aLastName < bLastName) {
+	    returnValue = -1;
+	} else if (aLastName > bLastName) {
+	    returnValue = 1;
+	} else {
+	    returnValue = 0;
+	}
+	
+        return returnValue;
     }
 
     /* Create a bar or pie chart using Vega. Modified by Minsuk Kahng (https://minsuk.com) */
@@ -930,6 +957,22 @@ class CSRankings {
         }
     }
 
+    private async loadCountryNames(countryNames: { [key: string]: string }): Promise<void> {
+        const data = await new Promise((resolve) => {
+            Papa.parse(this.countrynamesFile, {
+                header: true,
+                download: true,
+                complete: (results) => {
+                    resolve(results.data);
+                }
+            });
+        });
+        const ci = data as Array<CountryName>;
+        for (const info of ci) {
+            countryNames[info.alpha_2] = info.name;
+        }
+    }
+
     private async loadAuthorInfo(): Promise<void> {
         const data = await new Promise((resolve) => {
             Papa.parse(this.authorFile, {
@@ -971,54 +1014,34 @@ class CSRankings {
     }
 
     private inRegion(dept: string,
-        regions: string): boolean {
+		     regions: string): boolean {
         switch (regions) {
-            case "us":
-                if (dept in this.countryInfo) {
+            case "northamerica":
+                if (this.countryInfo[dept] != "northamerica") {
                     return false;
                 }
                 break;
             case "europe":
-                if (!(dept in this.countryInfo)) { // USA
-                    return false;
-                }
                 if (this.countryInfo[dept] != "europe") {
                     return false;
                 }
                 break;
-            case "northamerica":
-                if ((dept in this.countryInfo) && (this.countryInfo[dept] != "canada")) {
-                    return false;
-                }
-                break;
             case "australasia":
-                if (!(dept in this.countryInfo)) { // USA
-                    return false;
-                }
                 if (this.countryInfo[dept] != "australasia") {
                     return false;
                 }
                 break;
             case "southamerica":
-                if (!(dept in this.countryInfo)) { // USA
-                    return false;
-                }
                 if (this.countryInfo[dept] != "southamerica") {
                     return false;
                 }
                 break;
             case "asia":
-                if (!(dept in this.countryInfo)) { // USA
-                    return false;
-                }
                 if (this.countryInfo[dept] != "asia") {
                     return false;
                 }
                 break;
             case "africa":
-                if (!(dept in this.countryInfo)) { // USA
-                    return false;
-                }
                 if (this.countryInfo[dept] != "africa") {
                     return false;
                 }
@@ -1257,13 +1280,14 @@ class CSRankings {
             let keys = Object.keys(fc);
             keys.sort((a: string, b: string) => {
                 if (fc[b] === fc[a]) {
-                    return this.compareNames(a, b);
-                    /*		    let fb = Math.round(10.0 * facultyAdjustedCount[b]) / 10.0;
-                            const fa = Math.round(10.0 * facultyAdjustedCount[a]) / 10.0;
-                            if (fb === fa) {
-                            return this.compareNames(a, b);
-                            }
-                            return fb - fa; */
+                    // return this.compareNames(a, b);
+		    const fb = Math.round(10.0 * facultyAdjustedCount[b]) / 10.0;
+                    const fa = Math.round(10.0 * facultyAdjustedCount[a]) / 10.0;
+                    if (fb === fa) {
+                       return this.compareNames(a, b);
+                    } else {
+                       return fb - fa;
+		    }
                 } else {
                     return fc[b] - fc[a];
                 }
@@ -1394,8 +1418,10 @@ class CSRankings {
                     abbrv = countryAbbrv[dept];
                 }
 
+		const country = this.countryNames[abbrv.toUpperCase()] ?? abbrv.toUpperCase();
+		
                 s += "&nbsp;" + `<span onclick="csr.toggleFaculty('${esc}');">${dept}</span>`
-		  + `&nbsp;<img src="/flags/${abbrv}.png">&nbsp;`
+		  + `&nbsp;<img  title="${country}" src="/flags/${abbrv}.png">&nbsp;`
                     + `<span class="hovertip" onclick='csr.toggleChart("${esc}"); ga("send", "event", "chart", "toggle-department", "toggle ${esc} ${$("#charttype").find(":selected").val()} chart");' id='${esc + "-chartwidget"}'>`
                     + this.ChartIcon + "</span>";
                 s += "</td>";
@@ -1706,7 +1732,7 @@ class CSRankings {
     }
 
     public static geoCheck(): void {
-        navigator.geolocation.getCurrentPosition((position) => {
+        navigator.geolocation?.getCurrentPosition((position) => {
             const continent = whichContinent(position.coords.latitude, position.coords.longitude);
             let regions = (<HTMLInputElement>document.getElementById("regions"));
             switch (continent) {
