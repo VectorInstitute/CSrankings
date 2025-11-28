@@ -916,26 +916,9 @@ class CSRankings {
             const auth = this.authors[r];
             const dept = auth.dept;
             //	    if (!(dept in regionMap)) {
-
-            var skipAuthor = true;
-            // Does this author belong to multiple departments?
-            if (typeof(dept) != "undefined" && dept.indexOf("|") > 0) {
-                var allDepts = dept.split("|");
-                for (const thisDept of allDepts) {
-                    // If any of this author's departments are in the selected region, don't skip
-                    if (this.inRegion(thisDept, regions)) {
-                        skipAuthor = false;
-                    }
-                }
-            }
-            // If this author's department is in the selected region, don't skip them
-            else if (this.inRegion(dept, regions)) {
-                skipAuthor = false;
-            }
-            if (skipAuthor == true) {
+            if (!this.inRegion(dept, regions)) {
                 continue;
             }
-
             let area = auth.area;
             if (weights[area] === 0) {
                 continue;
@@ -952,44 +935,27 @@ class CSRankings {
             if (area in CSRankings.parentMap) {
                 area = CSRankings.parentMap[area];
             }
-            // Need to split the dept string in case this author has multiple institutions
-            var count;
-            var adjustedCount;
-            var allDepts = dept.split("|");
-            for (const thisDept of allDepts) {
-                var areaDept = area + thisDept;
-                if (!(areaDept in this.areaDeptAdjustedCount)) {
-                    this.areaDeptAdjustedCount[areaDept] = 0;
-                }
-                count = parseInt(this.authors[r].count);
-                adjustedCount = parseFloat(this.authors[r].adjustedcount);
-                this.areaDeptAdjustedCount[areaDept] += adjustedCount;
+            const areaDept = area + dept;
+            if (!(areaDept in this.areaDeptAdjustedCount)) {
+                this.areaDeptAdjustedCount[areaDept] = 0;
             }
-            facultycount[name] += count;
-            facultyAdjustedCount[name] += adjustedCount;
-
-            // Is this the first time we have seen this person?
+            const count = parseInt(this.authors[r].count);
+            const adjustedCount = parseFloat(this.authors[r].adjustedcount);
+            this.areaDeptAdjustedCount[areaDept] += adjustedCount;
+            /* Is this the first time we have seen this person? */
             if (!(name in visited)) {
                 visited[name] = true;
                 facultycount[name] = 0;
                 facultyAdjustedCount[name] = 0;
-                // Split along | in case this author belongs to multiple depts
-                var allDepts = dept.split("|");
-                for (var thisDept of allDepts) {
-                    if (!(thisDept in deptCounts)) {
-                        deptCounts[thisDept] = 0;
-                        deptNames[thisDept] = [];
-                    }
-                    deptNames[thisDept].push(name);
-                    deptCounts[thisDept] += 1;
+                if (!(dept in deptCounts)) {
+                    deptCounts[dept] = 0;
+                    deptNames[dept] = [];
                 }
+                deptNames[dept].push(name);
+                deptCounts[dept] += 1;
             }
-        }
-        // Make sure these departments are in the selected region
-        for (const dept in deptNames) {
-            if (!this.inRegion(dept, regions)) {
-                delete deptNames[dept];
-            }
+            facultycount[name] += count;
+            facultyAdjustedCount[name] += adjustedCount;
         }
     }
     /* Compute aggregate statistics. */
