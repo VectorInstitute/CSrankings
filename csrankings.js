@@ -774,6 +774,21 @@ class CSRankings {
         });
     }
     inRegion(dept, regions) {
+        // Handle undefined or null dept
+        if (!dept) {
+            return false;
+        }
+        // Handle pipe-separated affiliations (e.g., "University of Toronto|Vector Institute")
+        if (dept.indexOf('|') !== -1) {
+            const depts = dept.split('|');
+            for (const d of depts) {
+                if (this.inRegion(d.trim(), regions)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         switch (regions) {
             case "northamerica":
                 if (this.countryInfo[dept] != "northamerica") {
